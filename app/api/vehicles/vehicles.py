@@ -35,7 +35,7 @@ def get_vehicle_info(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
-        return HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e))
 
     return tpt.select_vehicle_info(brand, vid)
 
@@ -45,7 +45,7 @@ def get_doors(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
-        return HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e))
 
     return tpt.select_security_status(brand, vid)
 
@@ -55,7 +55,7 @@ def get_fuel_range(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
-        return HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e))
 
     return tpt.select_fuel_level(brand, vid)
 
@@ -65,7 +65,7 @@ def get_battery_range(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
-        return HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e))
 
     return tpt.select_battery_level(brand, vid)
 
@@ -75,5 +75,5 @@ def start_stop_engine(vid: str, body: models.StartStopEngineRequest):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
-        return HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e))
     # TODO: add this

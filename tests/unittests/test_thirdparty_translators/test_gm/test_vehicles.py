@@ -20,6 +20,14 @@ def test_post_vehicle_request():
     assert vehicles.post_vehicle_request("getVehicleInfoService", "1234")
 
 
+def test_translator_wrapper():
+    with pytest.raises(HTTPException):
+        vehicles.translate_vehicle_info({})
+        vehicles.translate_security_status({})
+        vehicles.translate_battery_level({})
+        vehicles.translate_fuel_level({})
+
+
 def test_translate_vehicle_info():
     input_data = {
         "vin": {"type": "String", "value": "1213231"},
@@ -106,6 +114,11 @@ def test_translate_fuel_level():
     assert test_output
     assert test_output.dict() == expected_output
 
+    # tests invalid fuel level
+    input_data["tankLevel"]["value"] = "invalid"
+    with pytest.raises(ValueError):
+        vehicles.translate_fuel_level(input_data)
+
 
 def test_translate_battery_level():
     input_data = {
@@ -126,6 +139,11 @@ def test_translate_battery_level():
     test_output = vehicles.translate_fuel_level(input_data)
     assert test_output
     assert test_output.dict() == expected_output
+
+    # tests invalid battery level
+    input_data["batteryLevel"]["value"] = "invalid"
+    with pytest.raises(ValueError):
+        vehicles.translate_battery_level(input_data)
 
 
 def test_translate_start_stop_engine():

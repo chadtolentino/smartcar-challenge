@@ -1,4 +1,5 @@
 from typing import List, Optional
+from pydantic.error_wrappers import ValidationError
 
 import requests
 from fastapi import HTTPException
@@ -56,6 +57,30 @@ def post_vehicle_request(
     return data
 
 
+def translator(func):
+    """Decorator to wrap validation and keyerrors into one error
+
+    Raises:
+        ValueError: raises value error when unable to translate data
+
+    Args:
+        func ([type]): translate function
+    """
+
+    def inner(data: dict):
+        try:
+            return func(data)
+        except (ValidationError, KeyError) as e:
+            # log e
+            raise HTTPException(
+                status_code=500,
+                detail="translation failed because of incorrectly formed data from external API",
+            )
+
+    return inner
+
+
+@translator
 def translate_vehicle_info(data: dict) -> models.VehicleInfo:
     """Translates vehicle info from GM API format to Smartcar format
 
@@ -87,6 +112,7 @@ def translate_vehicle_info(data: dict) -> models.VehicleInfo:
     return models.VehicleInfo.parse_obj(new_data)
 
 
+@translator
 def translate_security_status(data: dict) -> List[models.Door]:
     """Translates security status info from GM API format to Smartcar format
 
@@ -116,11 +142,15 @@ def translate_security_status(data: dict) -> List[models.Door]:
     return new_data_list
 
 
+@translator
 def translate_fuel_level(data: dict) -> models.Fuel:
     """Translates fuel information from GM API to Smartcar format
 
     Args:
         data (dict): energy data retrieved from GM
+
+    Raises:
+        ValueError: raises value error if fuel_value_str cannot be converted to float
 
     Returns:
         models.Fuel: [description]
@@ -136,16 +166,20 @@ def translate_fuel_level(data: dict) -> models.Fuel:
         try:
             fuel_value = float(fuel_value_str)
         except ValueError as e:
-            raise (e)
+            raise ValueError(f"{fuel_value_str} is not a correct percentage")
 
     return models.Fuel(percent=fuel_value)
 
 
+@translator
 def translate_battery_level(data: dict) -> models.Battery:
     """Translates battery information from GM API to Smartcar format
 
     Args:
         data (dict): energy data retrieved from GM
+
+    Raises:
+        ValueError: raises value error if battery_value_str cannot be converted to float
 
     Returns:
         models.Battery: [description]
@@ -158,7 +192,10 @@ def translate_battery_level(data: dict) -> models.Battery:
     if battery_value_str is None or battery_value_str.lower() == "null":
         battery_value = None
     else:
-        battery_value = float(battery_value_str)  # could possibly throw error?
+        try:
+            battery_value = float(battery_value_str)  # could possibly throw error?
+        except ValueError as e:
+            raise ValueError(f"{battery_value_str} is not a correct percentage")
 
     return models.Battery(percent=battery_value)
 
