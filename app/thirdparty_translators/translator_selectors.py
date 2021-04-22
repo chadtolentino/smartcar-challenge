@@ -1,5 +1,6 @@
 from typing import List
 
+
 from app.api.vehicles import models as vehicle_models
 
 from .gm import vehicles as gm_vehicles
@@ -34,5 +35,14 @@ def select_battery_level(brand: str, vehicle_id: str) -> vehicle_models.Battery:
     if brand == "gm":
         data = gm_vehicles.post_vehicle_request("getEnergyService", vehicle_id)
         return gm_vehicles.translate_battery_level(data)
+    else:
+        raise ValueError(f"brand {brand} not found!")
+
+
+def select_start_stop_engine(
+    brand: str, vehicle_id: str, post_data: dict
+) -> vehicle_models.StartStopEngineResponse:
+    if brand == "gm":
+        return gm_vehicles.start_stop_engine(vehicle_id, post_data)
     else:
         raise ValueError(f"brand {brand} not found!")

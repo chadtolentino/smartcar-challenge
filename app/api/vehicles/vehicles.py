@@ -76,4 +76,5 @@ def start_stop_engine(vid: str, body: models.StartStopEngineRequest):
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
         raise HTTPException(404, detail=str(e))
-    # TODO: add this
+
+    return tpt.select_start_stop_engine(brand, vid, body.dict())
