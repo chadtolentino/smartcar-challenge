@@ -1,14 +1,13 @@
-from typing import List
+from typing import Optional
 
-from fastapi import FastAPI
 from pydantic import BaseModel
 
 
 class VehicleInfo(BaseModel):
     vin: str
     color: str
-    door_count: int
-    drive_train: str
+    doorCount: int
+    driveTrain: str
 
 
 class Door(BaseModel):
@@ -17,11 +16,11 @@ class Door(BaseModel):
 
 
 class Fuel(BaseModel):
-    percent: float
+    percent: Optional[float]
 
 
 class Battery(BaseModel):
-    percent: float
+    percent: Optional[float]
 
 
 class StartStopEngineRequest(BaseModel):
