@@ -1,4 +1,4 @@
-from typing import List, Optional, Type
+from typing import List, Optional
 
 import requests
 from fastapi import HTTPException
@@ -11,7 +11,7 @@ BASE_URL = "http://gmapi.azurewebsites.net"  # hardcoded for now, but could be p
 def post_vehicle_request(
     url: str, vehicle_id: str, response_type="JSON", extra_data: Optional[dict] = None
 ) -> dict:
-    f"""makes a POST request to {BASE_URL} and returns the result as a dict
+    f"""Makes a POST request to {BASE_URL} and returns the result as a dict
 
     Args:
         url (str): route to service
@@ -65,7 +65,6 @@ def translate_vehicle_info(data: dict) -> models.VehicleInfo:
     Returns:
         models.VehicleInfo: Smartcar formatted data
     """
-    # data = post_vehicle_request("getVehicleInfoService", vehicle_id)
 
     new_data: dict = {}
     if "vin" in data:
@@ -95,12 +94,11 @@ def translate_security_status(data: dict) -> List[models.Door]:
         data (dict): data from GM API response
 
     Raises:
-        TypeError: raises typerror if door.values is not a list
+        TypeError: raises type error if door.values is not a list
 
     Returns:
         List[models.Door]: list of door objects
     """
-    # data = post_vehicle_request("getSecurityStatusService", vehicle_id)
     new_data_list = []
     if data.get("doors"):
         door_list = data["doors"].get("values")
@@ -119,15 +117,14 @@ def translate_security_status(data: dict) -> List[models.Door]:
 
 
 def translate_fuel_level(data: dict) -> models.Fuel:
-    """[summary]
+    """Translates fuel information from GM API to Smartcar format
 
     Args:
-        data (dict): [description]
+        data (dict): energy data retrieved from GM
 
     Returns:
         models.Fuel: [description]
     """
-    # data = post_vehicle_request("getEnergyService", vehicle_id)
     if "tankLevel" in data:
         fuel_value_str = data["tankLevel"].get("value")
     else:
@@ -145,7 +142,14 @@ def translate_fuel_level(data: dict) -> models.Fuel:
 
 
 def translate_battery_level(data: dict) -> models.Battery:
-    # data = post_vehicle_request("getEnergyService", vehicle_id)
+    """Translates battery information from GM API to Smartcar format
+
+    Args:
+        data (dict): energy data retrieved from GM
+
+    Returns:
+        models.Battery: [description]
+    """
     if "batteryLevel" in data:
         battery_value_str = data["batteryLevel"].get("value")
     else:
@@ -154,10 +158,7 @@ def translate_battery_level(data: dict) -> models.Battery:
     if battery_value_str is None or battery_value_str.lower() == "null":
         battery_value = None
     else:
-        try:
-            battery_value = float(battery_value_str)
-        except ValueError as e:
-            raise (e)
+        battery_value = float(battery_value_str)  # could possibly throw error?
 
     return models.Battery(percent=battery_value)
 
