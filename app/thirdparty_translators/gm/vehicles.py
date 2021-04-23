@@ -1,4 +1,5 @@
-from typing import List, Optional, Type
+from typing import List, Optional
+from pydantic.error_wrappers import ValidationError
 
 import requests
 from fastapi import HTTPException
@@ -9,13 +10,18 @@ BASE_URL = "http://gmapi.azurewebsites.net"  # hardcoded for now, but could be p
 
 
 def post_vehicle_request(
-    url: str, vehicle_id: str, response_type="JSON", extra_data: Optional[dict] = None
+    url: str,
+    vehicle_id: str,
+    raw=False,
+    response_type="JSON",
+    extra_data: Optional[dict] = None,
 ) -> dict:
-    f"""makes a POST request to {BASE_URL} and returns the result as a dict
+    f"""Makes a POST request to {BASE_URL} and returns the result as a dict
 
     Args:
         url (str): route to service
         vehicle_id (str): vehicle id
+        raw: if True, return the entire response, not just the data dict
         response_type (str, optional): response type from service. Defaults to "JSON".
         extra_data(dict, optional): any extra values that need to be passed in POST body
 
@@ -43,7 +49,11 @@ def post_vehicle_request(
 
     res = requests.post(f"{BASE_URL}{url}", json=post_data)
     res_json = res.json()
-    data = res_json.get("data")
+
+    if not raw:  # grabs only the data portion if not raw
+        data = res_json.get("data")
+    else:
+        data = res_json
 
     status = res_json.get("status", str(res.status_code))
 
@@ -56,6 +66,30 @@ def post_vehicle_request(
     return data
 
 
+def translator(func):
+    """Decorator to wrap validation and keyerrors into one error
+
+    Raises:
+        ValueError: raises value error when unable to translate data
+
+    Args:
+        func ([type]): translate function
+    """
+
+    def inner(data: dict):
+        try:
+            return func(data)
+        except (ValidationError, KeyError) as e:
+            # log e
+            raise HTTPException(
+                status_code=500,
+                detail="translation failed because of incorrectly formed data from external API",
+            )
+
+    return inner
+
+
+@translator
 def translate_vehicle_info(data: dict) -> models.VehicleInfo:
     """Translates vehicle info from GM API format to Smartcar format
 
@@ -65,7 +99,6 @@ def translate_vehicle_info(data: dict) -> models.VehicleInfo:
     Returns:
         models.VehicleInfo: Smartcar formatted data
     """
-    # data = post_vehicle_request("getVehicleInfoService", vehicle_id)
 
     new_data: dict = {}
     if "vin" in data:
@@ -88,6 +121,7 @@ def translate_vehicle_info(data: dict) -> models.VehicleInfo:
     return models.VehicleInfo.parse_obj(new_data)
 
 
+@translator
 def translate_security_status(data: dict) -> List[models.Door]:
     """Translates security status info from GM API format to Smartcar format
 
@@ -95,12 +129,11 @@ def translate_security_status(data: dict) -> List[models.Door]:
         data (dict): data from GM API response
 
     Raises:
-        TypeError: raises typerror if door.values is not a list
+        TypeError: raises type error if door.values is not a list
 
     Returns:
         List[models.Door]: list of door objects
     """
-    # data = post_vehicle_request("getSecurityStatusService", vehicle_id)
     new_data_list = []
     if data.get("doors"):
         door_list = data["doors"].get("values")
@@ -118,16 +151,19 @@ def translate_security_status(data: dict) -> List[models.Door]:
     return new_data_list
 
 
+@translator
 def translate_fuel_level(data: dict) -> models.Fuel:
-    """[summary]
+    """Translates fuel information from GM API to Smartcar format
 
     Args:
-        data (dict): [description]
+        data (dict): energy data retrieved from GM
+
+    Raises:
+        ValueError: raises value error if fuel_value_str cannot be converted to float
 
     Returns:
         models.Fuel: [description]
     """
-    # data = post_vehicle_request("getEnergyService", vehicle_id)
     if "tankLevel" in data:
         fuel_value_str = data["tankLevel"].get("value")
     else:
@@ -139,13 +175,24 @@ def translate_fuel_level(data: dict) -> models.Fuel:
         try:
             fuel_value = float(fuel_value_str)
         except ValueError as e:
-            raise (e)
+            raise ValueError(f"{fuel_value_str} is not a correct percentage")
 
     return models.Fuel(percent=fuel_value)
 
 
+@translator
 def translate_battery_level(data: dict) -> models.Battery:
-    # data = post_vehicle_request("getEnergyService", vehicle_id)
+    """Translates battery information from GM API to Smartcar format
+
+    Args:
+        data (dict): energy data retrieved from GM
+
+    Raises:
+        ValueError: raises value error if battery_value_str cannot be converted to float
+
+    Returns:
+        models.Battery: [description]
+    """
     if "batteryLevel" in data:
         battery_value_str = data["batteryLevel"].get("value")
     else:
@@ -155,16 +202,82 @@ def translate_battery_level(data: dict) -> models.Battery:
         battery_value = None
     else:
         try:
-            battery_value = float(battery_value_str)
+            battery_value = float(battery_value_str)  # could possibly throw error?
         except ValueError as e:
-            raise (e)
+            raise ValueError(f"{battery_value_str} is not a correct percentage")
 
     return models.Battery(percent=battery_value)
 
 
+def translate_engine_command(command: str) -> str:
+    """Translates engine start/stop command to GM equivalent
+
+    Args:
+        command (str): START|STOP
+
+    Raises:
+        HTTPException: raises 400 error if command is not in command_dict
+
+    Returns:
+        str: GM START|STOP command
+    """
+
+    # {SMARTCAR_KEY: GM_VALUE}
+    command_dict = {"START": "START_VEHICLE", "STOP": "STOP_VEHICLE"}
+
+    if command in command_dict:
+        return command_dict[command]
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"command {command} not recognized/missing"
+        )
+
+
+@translator
 def translate_start_stop_engine(data: dict) -> models.StartStopEngineResponse:
-    # translated_command = ""
-    # data = post_vehicle_request(
-    #     "actionEngineService", vehicle_id, extra_data={"command": translated_command}
-    # )
-    pass
+    """Translates response from GM start/stop engine into Smartcar response
+
+    Args:
+        data (dict): dict containing status key
+
+    Raises:
+        HTTPException: raises 500 error if status is not in status_dict
+
+    Returns:
+        models.StartStopEngineResponse: Smartcar StartStopEngine response
+    """
+    # {GM Status: Smartcar Status}
+    status_dict = {"EXECUTED": "success", "FAILED": "error"}
+    status = data["status"]
+    if status in status_dict:
+        translated_status = status_dict[status]
+    else:
+        raise HTTPException(
+            status_code=500, detail=f"status {status} not in status_dict!"
+        )
+
+    return models.StartStopEngineResponse(status=translated_status)
+
+
+def start_stop_engine(
+    vehicle_id: str, post_data: dict
+) -> models.StartStopEngineResponse:
+    """Wraps translate_engine_command and translate_start_stop_engine
+    Makes a post request to get data and then returns Smartcar StartStopEngine response
+
+    Args:
+        vehicle_id (str): vehicle id
+        post_data (dict): dict containing command to send to GM API
+
+    Returns:
+        models.StartStopEngineResponse: Smartcar StartStopEngine response
+    """
+    command = post_data.get("action", "")
+    translated_command = translate_engine_command(command)
+    data = post_vehicle_request(
+        "actionEngineService",
+        vehicle_id,
+        raw=True,
+        extra_data={"command": translated_command},
+    )
+    return translate_start_stop_engine(data.get("actionResult", {}))

@@ -19,6 +19,19 @@ def test_post_vehicle_request():
     # asserts normal request works
     assert vehicles.post_vehicle_request("getVehicleInfoService", "1234")
 
+    # tests to see if raw response works
+    assert "status" in vehicles.post_vehicle_request(
+        "getVehicleInfoService", "1234", raw=True
+    )
+
+
+def test_translator_wrapper():
+    with pytest.raises(HTTPException):
+        vehicles.translate_vehicle_info({})
+        vehicles.translate_security_status({})
+        vehicles.translate_battery_level({})
+        vehicles.translate_fuel_level({})
+
 
 def test_translate_vehicle_info():
     input_data = {
@@ -106,6 +119,11 @@ def test_translate_fuel_level():
     assert test_output
     assert test_output.dict() == expected_output
 
+    # tests invalid fuel level
+    input_data["tankLevel"]["value"] = "invalid"
+    with pytest.raises(ValueError):
+        vehicles.translate_fuel_level(input_data)
+
 
 def test_translate_battery_level():
     input_data = {
@@ -127,6 +145,34 @@ def test_translate_battery_level():
     assert test_output
     assert test_output.dict() == expected_output
 
+    # tests invalid battery level
+    input_data["batteryLevel"]["value"] = "invalid"
+    with pytest.raises(ValueError):
+        vehicles.translate_battery_level(input_data)
+
+
+def test_translate_engine_command():
+    assert vehicles.translate_engine_command("START") == "START_VEHICLE"
+    assert vehicles.translate_engine_command("STOP") == "STOP_VEHICLE"
+    with pytest.raises(HTTPException):
+        vehicles.translate_engine_command("INVALID")
+
 
 def test_translate_start_stop_engine():
-    pass
+    input_data = {"status": "EXECUTED"}
+    expected_output = {"status": "success"}
+
+    test_output = vehicles.translate_start_stop_engine(input_data)
+    assert test_output == expected_output
+
+    # tests different message
+    input_data = {"status": "FAILED"}
+    expected_output = {"status": "error"}
+
+    test_output = vehicles.translate_start_stop_engine(input_data)
+    assert test_output == expected_output
+
+    # tests invalid
+    input_data = {"status": "INVALID"}
+    with pytest.raises(HTTPException):
+        vehicles.translate_start_stop_engine(input_data)
