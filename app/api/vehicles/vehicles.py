@@ -37,56 +37,64 @@ def lookup_vehicle_id(vehicle_id: str) -> str:
     return brand
 
 
-@router.get("/{vid}", response_model=models.VehicleInfo)
-def get_vehicle_info(vid: str):
+@router.get("/{vehicle_id}", response_model=models.VehicleInfo)
+def get_vehicle_info(vehicle_id: str):
+    """Fetches vehicle information by vehicle_id"""
     try:
-        brand = lookup_vehicle_id(vid)
+        brand = lookup_vehicle_id(vehicle_id)
     except KeyError as e:
         logger.error(e)
         raise HTTPException(404, detail=str(e))
 
-    return tpt.select_vehicle_info(brand, vid)
+    return tpt.select_vehicle_info(brand, vehicle_id)
 
 
-@router.get("/{vid}/doors", response_model=List[models.Door])
-def get_doors(vid: str):
+@router.get("/{vehicle_id}/doors", response_model=List[models.Door])
+def get_doors(vehicle_id: str):
+    """Fetches door security information by vehicle_id"""
     try:
-        brand = lookup_vehicle_id(vid)
+        brand = lookup_vehicle_id(vehicle_id)
     except KeyError as e:
         logger.error(e)
         raise HTTPException(404, detail=str(e))
 
-    return tpt.select_security_status(brand, vid)
+    return tpt.select_security_status(brand, vehicle_id)
 
 
-@router.get("/{vid}/fuel", response_model=models.Fuel)
-def get_fuel_range(vid: str):
+@router.get("/{vehicle_id}/fuel", response_model=models.Fuel)
+def get_fuel_range(vehicle_id: str):
+    """Fetches fuel range by vehicle_id. Returns null if vehicle does not use fuel"""
     try:
-        brand = lookup_vehicle_id(vid)
+        brand = lookup_vehicle_id(vehicle_id)
     except KeyError as e:
         logger.error(e)
         raise HTTPException(404, detail=str(e))
 
-    return tpt.select_fuel_level(brand, vid)
+    return tpt.select_fuel_level(brand, vehicle_id)
 
 
-@router.get("/{vid}/battery", response_model=models.Battery)
-def get_battery_range(vid: str):
+@router.get("/{vehicle_id}/battery", response_model=models.Battery)
+def get_battery_range(vehicle_id: str):
+    """Fetches battery range by vehicle_id. Returns null if vehicle is not electric"""
     try:
-        brand = lookup_vehicle_id(vid)
+        brand = lookup_vehicle_id(vehicle_id)
     except KeyError as e:
         logger.error(e)
         raise HTTPException(404, detail=str(e))
 
-    return tpt.select_battery_level(brand, vid)
+    return tpt.select_battery_level(brand, vehicle_id)
 
 
-@router.post("/{vid}/engine", response_model=models.StartStopEngineResponse)
-def start_stop_engine(vid: str, body: models.StartStopEngineRequest):
+@router.post("/{vehicle_id}/engine", response_model=models.StartStopEngineResponse)
+def start_stop_engine(vehicle_id: str, body: models.StartStopEngineRequest):
+    """
+    Sends a request to start/stop vehicle. Proper commands are START|STOP
+    Returns "success" upon success, "error" upon error.
+    """
     try:
-        brand = lookup_vehicle_id(vid)
+        brand = lookup_vehicle_id(vehicle_id)
     except KeyError as e:
         logger.error(e)
         raise HTTPException(404, detail=str(e))
 
-    return tpt.select_start_stop_engine(brand, vid, body.dict())
+    return tpt.select_start_stop_engine(brand, vehicle_id, body.dict())
