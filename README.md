@@ -6,6 +6,8 @@ Recommended to use Python 3.8 or above
 
 ## Installation
 
+### Linux
+
 After cloning the repository,
 use the package manager [pip](https://pip.pypa.io/en/stable/) to install dependencies.
 
@@ -17,6 +19,13 @@ To launch the API, it is suggested to use [Uvicorn](https://www.uvicorn.org/).
 
 ```bash
 uvicorn app.main:app --port 8000
+```
+
+### Docker
+
+```
+docker build -t smartcar-challenge .
+docker run -dp 8000:80 --name smartcar-challenge smartcar-challenge
 ```
 
 ## Usage
