@@ -1,10 +1,13 @@
+import logging
 from typing import List, Optional
-from pydantic.error_wrappers import ValidationError
 
 import requests
 from fastapi import HTTPException
+from pydantic.error_wrappers import ValidationError
 
 from app.api.vehicles import models
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "http://gmapi.azurewebsites.net"  # hardcoded for now, but could be pulled from config file in future
 
@@ -34,7 +37,6 @@ def post_vehicle_request(
     Returns:
         dict: json data from response as dict
     """
-    # TODO: log request
     if not vehicle_id:
         raise ValueError("missing vehicle id")
     if not url:
@@ -46,6 +48,7 @@ def post_vehicle_request(
     post_data = {"id": vehicle_id, "responseType": response_type}
     if extra_data:  # adds extra key/values if provided
         post_data.update(extra_data)
+        logger.debug(f"post_data: {post_data}")
 
     res = requests.post(f"{BASE_URL}{url}", json=post_data)
     res_json = res.json()
@@ -55,13 +58,19 @@ def post_vehicle_request(
     else:
         data = res_json
 
+    logger.debug(f"data from POST request: {data}")
+
     status = res_json.get("status", str(res.status_code))
 
     if status != "200":
-        raise HTTPException(int(status), detail=res_json.get("reason"))
+        err_message = res_json.get("reason")
+        logger.error(err_message)
+        raise HTTPException(int(status), detail=err_message)
 
     if data is None:  # very rare case
-        raise ValueError("received empty response with no data")
+        err_message = "received empty response from GM API with no data"
+        logger.error(err_message)
+        raise HTTPException(status_code=500, detail=err_message)
 
     return data
 
@@ -78,9 +87,11 @@ def translator(func):
 
     def inner(data: dict):
         try:
-            return func(data)
+            translated_data = func(data)
+            logger.debug(f"translated data: {translated_data}")
+            return translated_data
         except (ValidationError, KeyError) as e:
-            # log e
+            logger.error(e)
             raise HTTPException(
                 status_code=500,
                 detail="translation failed because of incorrectly formed data from external API",
@@ -138,7 +149,9 @@ def translate_security_status(data: dict) -> List[models.Door]:
     if data.get("doors"):
         door_list = data["doors"].get("values")
         if not isinstance(door_list, list):  # rare edge case
-            raise TypeError(f"was expecting list of doors, instead got {door_list}")
+            err_message = f"was expecting list of doors, instead got {door_list}"
+            logger.error(err_message)
+            raise TypeError(err_message)
 
         for door in door_list:
             new_door = {}
@@ -228,9 +241,9 @@ def translate_engine_command(command: str) -> str:
     if command in command_dict:
         return command_dict[command]
     else:
-        raise HTTPException(
-            status_code=400, detail=f"command {command} not recognized/missing"
-        )
+        err_message = f"command {command} not recognized/missing"
+        logger.error(err_message)
+        raise HTTPException(status_code=400, detail=err_message)
 
 
 @translator
@@ -252,9 +265,9 @@ def translate_start_stop_engine(data: dict) -> models.StartStopEngineResponse:
     if status in status_dict:
         translated_status = status_dict[status]
     else:
-        raise HTTPException(
-            status_code=500, detail=f"status {status} not in status_dict!"
-        )
+        err_message = f"status {status} not in status_dict!"
+        logger.error(err_message)
+        raise HTTPException(status_code=500, detail=err_message)
 
     return models.StartStopEngineResponse(status=translated_status)
 

@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, HTTPException
@@ -6,6 +7,7 @@ from app.thirdparty_translators import translator_selectors as tpt
 
 from . import models
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -22,8 +24,13 @@ def lookup_vehicle_id(vehicle_id: str) -> str:
     Returns:
         str: brand name as string
     """
-    brand_dict = {"1234": "gm", "1235": "gm"}  # could be a query to a database
+    brand_dict = {
+        "1234": "gm",
+        "1235": "gm",
+        "FORD": "ford",
+    }  # could be a query to a database
     brand = brand_dict.get(vehicle_id, "UNKN")
+    logger.info(f"selected brand {brand}")
     if brand == "UNKN":
         raise KeyError(f"unable to find brand for vehicle_id {vehicle_id}")
 
@@ -35,6 +42,7 @@ def get_vehicle_info(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
+        logger.error(e)
         raise HTTPException(404, detail=str(e))
 
     return tpt.select_vehicle_info(brand, vid)
@@ -45,6 +53,7 @@ def get_doors(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
+        logger.error(e)
         raise HTTPException(404, detail=str(e))
 
     return tpt.select_security_status(brand, vid)
@@ -55,6 +64,7 @@ def get_fuel_range(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
+        logger.error(e)
         raise HTTPException(404, detail=str(e))
 
     return tpt.select_fuel_level(brand, vid)
@@ -65,6 +75,7 @@ def get_battery_range(vid: str):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
+        logger.error(e)
         raise HTTPException(404, detail=str(e))
 
     return tpt.select_battery_level(brand, vid)
@@ -75,6 +86,7 @@ def start_stop_engine(vid: str, body: models.StartStopEngineRequest):
     try:
         brand = lookup_vehicle_id(vid)
     except KeyError as e:
+        logger.error(e)
         raise HTTPException(404, detail=str(e))
 
     return tpt.select_start_stop_engine(brand, vid, body.dict())
