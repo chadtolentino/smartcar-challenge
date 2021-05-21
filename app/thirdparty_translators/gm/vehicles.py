@@ -9,7 +9,7 @@ from app.api.vehicles import models
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "http://gmapi.azurewebsites.net"  # hardcoded for now, but could be pulled from config file in future
+BASE_URL = "http://gmapid.azurewebsites.net"  # hardcoded for now, but could be pulled from config file in future
 
 
 def post_vehicle_request(
